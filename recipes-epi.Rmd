@@ -1,0 +1,94 @@
+---
+title: "recipes-epi"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(jsonlite)
+library(tm)
+library(dendextend)
+setwd("~/recipes-epi")
+
+recipes <-fromJSON("full_format_recipes.json")
+
+ingredcorpus <- paste(recipes$ingredients)
+ingredcorpus <- gsub("[^A-Za-z]"," ",ingredcorpus)
+allingredtf <- termFreq(ingredcorpus)
+allingred <- data.frame(allingredtf)
+allingred$name <- rownames(allingred)
+
+allingred <- allingred[order(allingred$allingredtf),]
+allingredc <- allingred
+allingredc$name <- gsub("es$|s$","",allingred$name)
+
+
+allingredc <- aggregate(allingredc$allingredtf, by=list(Category=allingredc$name), FUN=sum)
+
+allingredc <- allingredc[order(allingredc$x, decreasing = TRUE),]
+
+
+write.csv(allingredc, file="allingredc.csv")
+
+allingredclean <- read.csv("allingredcclean.csv")
+allingredclean <- subset(allingredclean, allingredclean$Category != "")
+allingredclean <- aggregate(allingredclean$x, by=list(Category=allingredclean$Category), FUN=sum)
+
+allingredclean <- allingredclean[order(allingredclean$x, decreasing = TRUE),]
+topingred <- subset(allingredclean, allingredclean$x > 100)
+
+topingred$plural <- paste(topingred$Category, "s", sep="")
+write.csv(topingred, file="topingred.csv")
+
+topingred <- topingred[,2:4]
+colnames(topingred) <- c("name", "count", "plural")
+
+lstringin <- function(x, y ){
+  grepl(x, y, fixed= TRUE)
+}
+````
+
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+#irisdat <- as.matrix(iris[,1:4])
+
+wine.pca <- prcomp(wine, center = TRUE,scale. = TRUE) 
+
+ggbiplot(wine.pca, obs.scale = 1, var.scale = 1, ellipse = FALSE, circle = FALSE, var.axes=TRUE, labels=wine.class)
+
+
+singin <- lapply(topingred$name, function(x) grepl(x, recipes$ingredients, fixed=TRUE))
+plurin <- lapply(topingred$plural, function(x) grepl(x, recipes$ingredients, fixed=TRUE))
+testsi <- singin[1:10]
+singindf <- t(as.data.frame(singin))
+
+
+rownames(singindf) <-topingred$name
+colnames(singindf) <- recipes$title
+plurindf <- t(as.data.frame(plurin))
+
+ingredindf <- (singindf + 0) + (plurindf + 0)
+ingredindf <- (ingredindf > 0) + 0
+
+ingredist <- dist(t(ingredindf))
+ingredclust.out <- hclust(ingredist, method="complete")
+ingredclust.cut <- cutree(ingredclust.out, k=20)
+
+````
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+
+
+plot(ingredclust.out)
+ingredclust.gg <- ggdend(ingredclust.out[100])
+ggplot(ingredclust.gg, labesls=FALSE)+
+  coord_polar(theta="x")+
+  theme_bw() +
+  scale_colour_brewer()
+
+ggsave(plot=p, height=100,width=100,dpi=200, filename=paste("plottest.pdf"), useDingbats=FALSE, limitsize = FALSE)
+
+````
