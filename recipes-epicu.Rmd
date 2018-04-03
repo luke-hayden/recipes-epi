@@ -7,76 +7,120 @@ output: html_document
 library(ggplot2)
 library(jsonlite)
 library(tm)
+library(dplyr)
+library(tidyr)
 library(klaR)
+#library(ggbiplot)
+#library(BBmisc)
 setwd("~/recipes-epi")
+````
+#Term frequency
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 recipes <-fromJSON("full_format_recipes.json")
+recipes$numingred <- lengths(recipes$ingredients)
+
+recipes$numcat <- lengths(recipes$categories)
+recipes$numdir <- lengths(recipes$directions)
+recipes$namenum <- paste(seq(1:nrow(recipes)), recipes$title)
+
+
 
 ingredcorpus <- paste(recipes$ingredients)
 ingredcorpus <- gsub("[^A-Za-z]"," ",ingredcorpus)
-allingredtf <- termFreq(ingredcorpus)
-allingred <- data.frame(allingredtf)
+
+
+
+allingred <- termFreq(ingredcorpus) %>% 
+  data.frame() 
+colnames(allingred) <- "termfre"
 allingred$name <- rownames(allingred)
+allingred <- allingred[order(allingred$termfre),]
 
-allingred <- allingred[order(allingred$allingredtf),]
-allingredc <- allingred
-allingredc$name <- gsub("es$|s$","",allingred$name)
+allingredc <- allingred %>% 
+  mutate(namesing = gsub("es$|s$","", name))
+
+allingredc <-  aggregate(allingredc$termfre, by=list(name=allingredc$namesing) , FUN=sum)
+
+allingred <- left_join(allingred, allingredc, by ="name")
+allingred$termfreg <- pmax(allingred$termfre, allingred$x) 
+allingred <- allingred[order(allingred$termfreg, decreasing = T),]
 
 
-allingredc <- aggregate(allingredc$allingredtf, by=list(Category=allingredc$name), FUN=sum)
 
-allingredc <- allingredc[order(allingredc$x, decreasing = TRUE),]
+notingred <- read.csv(file="not_ingred.csv")
 
 
-write.csv(allingredc, file="allingredc.csv")
+topingred <- subset(allingred, allingred$name %in% notingred$n_i == FALSE)[1:300,]
 
-allingredclean <- read.csv("allingredcclean.csv")
-allingredclean <- subset(allingredclean, allingredclean$Category != "")
-allingredclean <- aggregate(allingredclean$x, by=list(Category=allingredclean$Category), FUN=sum)
+topingred$nameplur <- paste(topingred$name, "s", sep="")
+topingred$namesing <-  gsub("es$|s$","", topingred$name)
 
-allingredclean <- allingredclean[order(allingredclean$x, decreasing = TRUE),]
-topingred <- subset(allingredclean, allingredclean$x > 100)
-
-topingred$plural <- paste(topingred$Category, "s", sep="")
-write.csv(topingred, file="topingred.csv")
-
-topingred <- topingred[,2:4]
-colnames(topingred) <- c("name", "count", "plural")
-
-lstringin <- function(x, y ){
-  grepl(x, y, fixed= TRUE)
-}
 ````
 
-
+#kmodes clustering: setup & test
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
-singin <- lapply(topingred$name, function(x) grepl(x, recipes$ingredients, fixed=TRUE))
-plurin <- lapply(topingred$plural, function(x) grepl(x, recipes$ingredients, fixed=TRUE))
-testsi <- singin[1:10]
-singindf <- t(as.data.frame(singin))
+namein <-     as.data.frame(lapply(topingred$name, function(x) grepl(x, recipes$ingredients, fixed=TRUE)))
+namesingin <- as.data.frame(lapply(topingred$namesing, function(x) grepl(x, recipes$ingredients, fixed=TRUE))) 
+nameplurin <- as.data.frame(lapply(topingred$nameplur, function(x) grepl(x, recipes$ingredients, fixed=TRUE))) 
 
 
-rownames(singindf) <-topingred$name
-colnames(singindf) <- recipes$title
-plurindf <- t(as.data.frame(plurin))
+ingredindf <-data.frame( namein| namesingin|nameplurin)
 
-ingredindf <- (singindf + 0) + (plurindf + 0)
-ingredindf <- (ingredindf > 0) + 0
 
-#we will run kmoeds for a range of different number of centres, using a toy dataset, with just 1000 recipes
+colnames(ingredindf) <-topingred$name
 
-simp <- t(ingredindf[,1:1000])
+rownames(ingredindf) <- paste(seq(1,nrow(ingredindf)),recipes$title)
+
+
+#we will run kmodes for a range of different number of centres, using a toy dataset, with just 1000 recipes
+
+simp <- ingredindf[1:1000,1:100]
 wdiff <- 0
 
-# For 1 to 15 cluster centers
+# For 1 to 10 cluster centers
 for (i in 1:10 ){
   km.out <- kmodes(simp, modes = i)
-  # Save total within sum of squares to wss variable
   wdiff[i] <- km.out$withindiff
 }
 
+ggplot(data=data.frame(seq=1:10, wdiff=wdiff), aes(x=seq, y=wdiff))+
+  geom_area(alpha=0.6)+
+  xlab("Number of modes (clusters)")+
+  ylab("within-cluster simple-matching distance")+
+  ggtitle("Choosing appropriate number of clusters", subtitle = "kmodes clustering using test dataset")+
+  theme_minimal()
+
+
+
+
+````
+
+#kmodes
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+system.time(km.out.main <- kmodes(ingredindf, modes=6))
+
+
+````
+
+#Examining our clusters: find the modal ingredient sets
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+modes <- as.data.frame(km.out.main$modes)
+modeing <- data.frame(clust =c(), ingreds =c())
+
+
+for (i in 1:6){
+
+  modeing<-rbind(modeing, data.frame(clust=i, ingreds =paste(unlist(subset(colnames(modes), modes[i,]==TRUE)))))
+}
+modeing <- modeing %>% group_by(clust) %>% summarise(ingreds=paste(ingreds, collapse=" "))
+modeing$ingredscol <- gsub(" ", "\n", modeing$ingreds)
+modeing$clust <- as.factor(modeing$clust)
 
 ````
 
@@ -84,11 +128,305 @@ for (i in 1:10 ){
 
 
 
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+
+
+
+  
+  modedf <-km.out.main$modes %>%
+    apply(2, as.logical)
+  colnames(modedf) <- colnames(km.out.main$modes)
+  rownames(modedf) <- 1:6
+  modedf <-     modedf[,colSums(modedf) >0]%>% t() %>% as.data.frame()
+  
+ingredinmattrim <- as.matrix(ingredindf[,colnames(ingredindf) %in% rownames(modedf)  ]) 
+
+
+
+distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, namenum=rownames(ingredinmattrim))
+                     
+                     
+                     , name= gsub("\\d+","",rownames(ingredindf)) )
+
+
+for (i in 1:nrow(ingredinmattrim)){
+  for (x in 1:ncol(modedf)){
+    distdf[i,x] <- sum(ingredinmattrim[i,] != modedf[,x])
+  }
+  
+}
+
+#km.out.main
+
+
+
+````
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+
+
+distdf$clust <-unlist(km.out.main$cluster)
+distdf$nearclust <- apply(distdf[,1:6],1,min)
+
+
+#Double-check cluster assignments: is closest cluster(by this method) same as cluster assignment from kmodes?
+
+sum(apply(distdf[,1:6],1,which.min) ==distdf$clust)
+#Yes!
+
+
+mdistdf <- gather(distdf, key="clust", value="dist", 1:6)
+
+ggplot(mdistdf, aes(y=dist, x= , clust,colour=clust))+
+         geom_violin()
+         facet_wrap(~clust)
+
+
+````
+
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+recipesp <- left_join(recipes, distdf, by="namenum")
+recipesp$clust <- as.factor(recipesp$clust)
+
+
+
+vardetails <- data.frame(var=c("fat", "calories", "protein", "rating", "sodium", "numingred"), details = c("Fat (g)", "Calories (kcal)", "Protein (g)", "Rating", "Sodium (g)", "Number of Ingredients"))
+
+mrecipesp <- gather(recipesp, key="var", value="measure", c("fat", "calories", "protein", "rating", "sodium", "numingred")) %>% left_join(vardetails, by="var")
+
+
+ggplot(subset(mrecipesp, mrecipesp$var %in% c("fat", "calories", "protein", "sodium")), 
+       aes(x=clust, y=measure, fill=clust))+
+  geom_boxplot(outlier.shape=NA)+
+  facet_wrap(~details, scales="free")+
+  scale_colour_discrete()+
+  theme_minimal()+
+  scale_y_log10()
+
+
+
+```
+
+
+````{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+recipesp <- left_join(recipes, distdf, by="namenum")
+recipesp$clust <- as.factor(recipesp$clust)
+
+ggplot(recipesp, aes(x=numingred, y=rating, colour=clust))+
+  geom_point(size=2.5, alpha=0.05)+
+    geom_smooth(method='lm', aes(x=numingred, y=rating),inherit.aes=F,  se=F)+
+    geom_smooth(method='lm', aes(x=nearclust, y=rating),inherit.aes=F, colour="red", se=F)+
+  facet_wrap(~clust)
+
+
+ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
+  geom_point(size=2.5, alpha=0.05)+
+    geom_smooth(method='lm', aes(x=nearclust, y=rating),inherit.aes=F, colour="red", se=F)+
+  facet_wrap(~clust)
+
+
+
+
+
+  geom_smooth(method='lm', aes(x=nearclust, y=rating), se=F)+
+  scale_colour_discrete()+
+  theme_minimal()+
+  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))
+  geom_text(data=modeing, aes(x=35,y=4, label=ingredscol), size=3.5)
+  
+  
+ggplot(recipesp, aes(x=numingred, y=nearclust, colour=clust))+
+  geom_point(size=2.5, alpha=0.05)+
+  theme_minimal()+
+  geom_smooth(method='lm', aes(x=numingred, y=nearclust),inherit.aes=F,  se=F)
+    
+    
+    
+    
+ggplot(recipesp, aes(x=clust, y=numingred, colour=clust))+
+  geom_violin()
+  
+
+````
+
+
+````{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+recipesp <- left_join(recipes, distdf, by="namenum")
+recipesp$clust <- as.factor(recipesp$clust)
+
+ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
+  geom_point(size=2.5, alpha=0.05)+
+  facet_wrap(~clust)+
+  geom_smooth(method='lm', aes(x=nearclust, y=rating), se=F)+
+  scale_colour_discrete()+
+  theme_minimal()+
+  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  geom_text(data=modeing, aes(x=35,y=4, label=ingredscol), size=3.5)
+
+````
+#Finding archetypal recipes
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+archetypes <- distdf[c(which.min(distdf$m1dist), 
+                       which.min(distdf$m2dist), 
+                       which.min(distdf$m3dist), 
+                       which.min(distdf$m4dist), 
+                       which.min(distdf$m5dist), 
+                       which.min(distdf$m6dist)),]
+
+
+archetypemat <- ingredinmat[c(which.min(distdf$m1dist), which.min(distdf$m2dist), which.min(distdf$m3dist), which.min(distdf$m4dist), which.min(distdf$m5dist), which.min(distdf$m6dist)),]
+
+
+modematrix <- rbind(as.numeric(unlist(km.out.main$modes[1,])), as.numeric(unlist(km.out.main$modes[2,])), as.numeric(unlist(km.out.main$modes[3,])), as.numeric(unlist(km.out.main$modes[4,])), as.numeric(unlist(km.out.main$modes[5,])), as.numeric(unlist(km.out.main$modes[6,])))
+colnames(modematrix) <- colnames(ingredinmat)
+rownames(modematrix) <- rownames(archetypemat)
+
+modemats <- modematrix[,colSums(modematrix) >0& colSums(modematrix) <6]
+ingredinmats <- ingredinmat[,colSums(modematrix) >0& colSums(modematrix) <6]
+
+
+#archefact <- factanal(t(ingredinmats[1:1000]),2, rotation="varimax")
+
+
+````
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+mainingred <- colnames(modemats)
+
+convertRowsToList(modemats)
+
+listofmodes <- list(mainingred, mainingred, mainingred, mainingred, mainingred, mainingred)
+
+for (i in 1:6){
+  listofmodes[i] <- mainingred[modemats[i,] == 1]
+}
+
+modelist <- mainingred[modemats[1,] == 1]
+
+modelist <- apply(modemats, 1,mainingred[x == 1] )
+
+````
+
+
+
+
+
+#Factor analysis
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+
+archefact <- factanal(t(archetypemat),2, rotation="varimax")
+
+
+archefact.lo <- as.data.frame(archefact$loadings[,1:2])
+archefact.lo$names <- rownames(archetypemat)
+archefact.lo$size <- as.numeric(archetypes$clustsize)
+
+
+ggplot(archefact.lo, aes(x= Factor1, y=Factor2,  label=names, colour=names))+
+  geom_point(aes(size=size*100000000))+
+  geom_text()+
+  theme_minimal()
+  scale_radius(range=c(1,30))
+````
 
 
 
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+tbc <- cbind(recipes[,c(2, 5,7,8,11:14)])
+tbc <-cbind(distdf[,c(1:6)])
+rownames(tbc) <- rownames(distdf)
+tbc <- subset(tbc, distdf$clustdist <12)
+
+
+
+#tbcg <- tbc[apply(tbc, 2, var, na.rm=TRUE) != 0,]
+#tbcg <- subset(tbcg, !(is.na(tbcg$fat)) &!(is.na(tbcg$calories))&!(is.na(tbcg$protein) & !(is.na(tbcg$sodium))&  !(is.na(tbcg$rating))) )
+
+tbc <- tbc[complete.cases(tbc),]
+
+bc.pca <- prcomp(tbc,center = TRUE ,scale. = TRUE) 
+
+
+bc.groups <- factor(distdf$clust[rownames(distdf) %in% rownames(tbc)])
+archet <- subset(bc.pca$x, rownames(bc.pca$x) %in% rownames(archefact.lo))
+
+ggbiplot(bc.pca, obs.scale = 1, var.scale = 1, ellipse = TRUE, circle = F,alpha=0.5, var.axes=TRUE, groups=bc.groups)+
+  scale_colour_manual(values=c("forest green", "red3", "cornflower blue", "yellow", "chocolate", "darkviolet"))+
+  theme_minimal()+
+  ylim(-5,4)+
+  xlim(-5,5)
+
+
+
+  geom_label()
+  coord_fixed(ratio=100)
+
+theme(legend.direction = 'horizontal', legend.position = 'top') 
+
+
+````
+
+ggtitle("PCA of all samples (normalised via housekeeping genes and internal controls NanoStringNorm")+ scale_colour_manual(values=c("cornflower blue", "forest green" ,"red3", "black"))
+
+p<-ggbiplot(bc.pca, obs.scale = 1, var.scale = 1, ellipse = FALSE, circle = TRUE, var.axes=FALSE, labels=rownames(tbc), groups=bc.groups)+ theme(legend.direction = 'horizontal', legend.position = 'top') +ggtitle("PCA of all samples (normalised via housekeeping genes and internal controls NanoStringNorm")+ scale_colour_manual(values=c("cornflower blue", "forest green" ,"red3", "black"))
+
+
+
+
+#Factor analysis
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+
+
+
+hclust.arche.out <- hclust(dist(archetypemat))
+
+dhc <- as.dendrogram(hclust.arche.out)
+
+ddata <- dendro_data(dhc, type = "rectangle")
+ggplot(segment(ddata)) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) + 
+  coord_flip() + 
+  geom_point(data=aes(x=xend, y=yend))+
+  scale_size_continuous(aes(size=size))+
+  scale_y_reverse(expand = c(0.2, 0))+
+  coord_polar(theta="x")
+
+plot(as.phylo(hclust.arche.out), type = "fan")
+
+ggdendrogram(hclust.arche.out, rotate=TRUE)+
+    coord_flip() 
+````
+
+
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+ingredinmat <- t(ingredindf)
+
+
+distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, names=rownames(ingredinmat))
+
+
+for (i in 1:nrow(ingredinmat)){
+  for (x in 1:ncol(modedf)){
+    distdf[i,x] <- sum(ingredinmat[i,] != modedf[,x])
+  }
+  
+}
+
+
+distdf$clust <- apply(distdf[,1:6],1,which.min)
+
+distdf$clustdist <- apply(distdf[,1:6],1,min)
 
 
 ````
