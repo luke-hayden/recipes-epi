@@ -3,18 +3,27 @@ title: "recipes-epi"
 output: html_document
 ---
 
+
 ```{r setup, include=FALSE}
 library(ggplot2)
 library(jsonlite)
-library(tm)
+#library(tm)
 library(dplyr)
 library(tidyr)
 library(klaR)
-#library(ggbiplot)
-#library(BBmisc)
+
 setwd("~/recipes-epi")
 ````
+
+
+#Intro
+I'm going to be looking at this interesting dataset of recipes from epicurious, kindly provided by Kaggle.com user HugoDarwood. The dataset is a large JSON file, consisting of information on ~21000 recipes from epicurious.com. For each recipe, we have a title, some nutritional information, a set of instructions, a list of ingredients and a rating, as given by site users. I'm particularly interested in the lists of ingredients and what it can tell us about how food recipes vary. Suppose I told you that I was cooking something and that I needed the following ingredients: sugar, butter, flour, eggs, cocoa powder, chocolate. Without any other information and without any idea of the quantities of each ingredient or the method I will use, you would probably guess that I was making dessert, probably some kind of chocolate cake. On the other hand, I let's imagine that I asked for onions, celery, lamb, carrots, potatoes and parsnips. While you wouldn't be completely sure what I was making, you might guess that I was making a stew or preparing a "meat and veg" traditional dinner. In any case, you'd be pretty sure that I wasn't making a dessert, simply by glancing at my list of ingredients. Intuitively, we can imagine a couple of groups of recipes that all share a large amount of ingredients in common. Some recipes will 
+
+What I'm going to try to do is to do this on a larger and more systematic scale, using the list of ingredients to divide the recipes into groups. 
+
 #Term frequency
+
+I'm going to use a term frequency approach to find the most common words in the ingredients text across all recipes. Then, I'll clean this list by removing common words that aren't ingredients. Otherwise, words like "teaspoon" and "chopped" would dominate. Then, I'll take the 300 most common ingredients from that cleaned list. 
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
@@ -61,6 +70,10 @@ topingred$namesing <-  gsub("es$|s$","", topingred$name)
 
 #kmodes clustering: setup & test
 
+I'll then count the presence or absence of each ingredient (plus some standard variations on the word; plurals and such) in each of the ~21000 recipes. This gives me a table for the presence or absence of each of these ingredients in each recipe, which I can use as the input data to conduct a kmodes clustering. kmodes is a clustering algorithm, similar to kmeans, but for categorical data. 
+
+First, we will need to determine how many clusters to cluster our dataset into. We'll test this out with a test dataset, taking a small subset of our data then running the algorithm many times for different numbers of clusters. We'll try to find the optimal number of clusters to minimise the within-cluster simple-matching distance. Ideally, we want few clusters, but with the samples in each cluster grouping tightly together. 
+
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 namein <-     as.data.frame(lapply(topingred$name, function(x) grepl(x, recipes$ingredients, fixed=TRUE)))
@@ -99,7 +112,13 @@ ggplot(data=data.frame(seq=1:10, wdiff=wdiff), aes(x=seq, y=wdiff))+
 
 ````
 
+Based on this graph, six clusters looks to be the most natural way to divide the recipes. 
+
+
 #kmodes
+
+With our full dataset, we use the kmodes algorithm to divide our recipes into 6 groups.  
+
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 system.time(km.out.main <- kmodes(ingredindf, modes=6))
@@ -156,8 +175,6 @@ for (i in 1:nrow(ingredinmattrim)){
   }
   
 }
-
-#km.out.main
 
 
 
