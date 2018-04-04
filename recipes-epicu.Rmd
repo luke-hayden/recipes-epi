@@ -164,10 +164,6 @@ ingredinmattrim <- as.matrix(ingredindf[,colnames(ingredindf) %in% rownames(mode
 
 
 distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, namenum=rownames(ingredinmattrim))
-                     
-                     
-                     , name= gsub("\\d+","",rownames(ingredindf)) )
-
 
 for (i in 1:nrow(ingredinmattrim)){
   for (x in 1:ncol(modedf)){
@@ -231,26 +227,13 @@ ggplot(subset(mrecipesp, mrecipesp$var %in% c("fat", "calories", "protein", "sod
 
 
 ````{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-recipesp <- left_join(recipes, distdf, by="namenum")
-recipesp$clust <- as.factor(recipesp$clust)
 
-ggplot(recipesp, aes(x=numingred, y=rating, colour=clust))+
-  geom_point(size=2.5, alpha=0.05)+
-    geom_smooth(method='lm', aes(x=numingred, y=rating),inherit.aes=F,  se=F)+
-    geom_smooth(method='lm', aes(x=nearclust, y=rating),inherit.aes=F, colour="red", se=F)+
-  facet_wrap(~clust)
 
 
 ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
   geom_point(size=2.5, alpha=0.05)+
     geom_smooth(method='lm', aes(x=nearclust, y=rating),inherit.aes=F, colour="red", se=F)+
-  facet_wrap(~clust)
-
-
-
-
-
-  geom_smooth(method='lm', aes(x=nearclust, y=rating), se=F)+
+  facet_wrap(~clust)+
   scale_colour_discrete()+
   theme_minimal()+
   scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))
@@ -294,39 +277,10 @@ archetypes <- distdf[c(which.min(distdf$m1dist),
                        which.min(distdf$m3dist), 
                        which.min(distdf$m4dist), 
                        which.min(distdf$m5dist), 
-                       which.min(distdf$m6dist)),]
+                       which.min(distdf$m6dist)),] %>% select ()
 
 
-archetypemat <- ingredinmat[c(which.min(distdf$m1dist), which.min(distdf$m2dist), which.min(distdf$m3dist), which.min(distdf$m4dist), which.min(distdf$m5dist), which.min(distdf$m6dist)),]
 
-
-modematrix <- rbind(as.numeric(unlist(km.out.main$modes[1,])), as.numeric(unlist(km.out.main$modes[2,])), as.numeric(unlist(km.out.main$modes[3,])), as.numeric(unlist(km.out.main$modes[4,])), as.numeric(unlist(km.out.main$modes[5,])), as.numeric(unlist(km.out.main$modes[6,])))
-colnames(modematrix) <- colnames(ingredinmat)
-rownames(modematrix) <- rownames(archetypemat)
-
-modemats <- modematrix[,colSums(modematrix) >0& colSums(modematrix) <6]
-ingredinmats <- ingredinmat[,colSums(modematrix) >0& colSums(modematrix) <6]
-
-
-#archefact <- factanal(t(ingredinmats[1:1000]),2, rotation="varimax")
-
-
-````
-
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-mainingred <- colnames(modemats)
-
-convertRowsToList(modemats)
-
-listofmodes <- list(mainingred, mainingred, mainingred, mainingred, mainingred, mainingred)
-
-for (i in 1:6){
-  listofmodes[i] <- mainingred[modemats[i,] == 1]
-}
-
-modelist <- mainingred[modemats[1,] == 1]
-
-modelist <- apply(modemats, 1,mainingred[x == 1] )
 
 ````
 
