@@ -12,14 +12,16 @@ library(dplyr)
 library(tidyr)
 library(klaR)
 
-setwd("~/Documents/recipes-epi")
+setwd("~/recipes-epi")
 ````
 
 
 #Intro
-I'm going to be looking at this interesting dataset of recipes from epicurious, kindly provided by Kaggle.com user HugoDarwood. The dataset is a large JSON file, consisting of information on ~21000 recipes from epicurious.com. For each recipe, we have a title, some nutritional information, a set of instructions, a list of ingredients and a rating, as given by site users. I'm particularly interested in the lists of ingredients and what it can tell us about how food recipes vary. Suppose I told you that I was cooking something and that I needed the following ingredients: sugar, butter, flour, eggs, cocoa powder, chocolate. Without any other information and without any idea of the quantities of each ingredient or the method I will use, you would probably guess that I was making dessert, probably some kind of chocolate cake. On the other hand, I let's imagine that I asked for onions, celery, lamb, carrots, potatoes and parsnips. While you wouldn't be completely sure what I was making, you might guess that I was making a stew or preparing a "meat and veg" traditional dinner. In any case, you'd be pretty sure that I wasn't making a dessert, simply by glancing at my list of ingredients. Intuitively, we can imagine a couple of groups of recipes that all share a large amount of ingredients in common. Some recipes will 
+I'm going to be looking at this interesting dataset of recipes from epicurious, kindly provided by Kaggle.com user HugoDarwood. The dataset is a large JSON file, consisting of information on ~21000 recipes from epicurious.com. For each recipe, we have a title, some nutritional information, a set of instructions, a list of ingredients and a rating, as given by site users. I'm particularly interested in the lists of ingredients and what it can tell us about how food recipes vary. Suppose I told you that I was cooking something and that I needed the following ingredients: sugar, butter, flour, eggs, cocoa powder, chocolate. Without any other information and without any idea of the quantities of each ingredient or the method I will use, you would probably guess that I was making dessert, probably some kind of chocolate cake. On the other hand, I let's imagine that I asked for onions, celery, lamb, carrots, potatoes and parsnips. While you wouldn't be completely sure what I was making, you might guess that I was making a stew or preparing a "meat and veg" traditional dinner. In any case, you'd be pretty sure that I wasn't making a dessert, simply by glancing at my list of ingredients. Intuitively, we can imagine a couple of groups of recipes that all share a large amount of ingredients in common. 
 
-What I'm going to try to do is to do this on a larger and more systematic scale, using the list of ingredients to divide the recipes into groups. 
+What I'm going to try to do is to do this on a larger and more systematic scale, using the list of ingredients to divide the recipes into groups. Within each group we will have some recipes which are close to the modal value (the centre) and some which are farther away. The former are more generic recipes, those which are more similar to other recipies. The latter are the more unusual recipes, using unusual ingredients and  unusual combinations of ingredients. 
+
+The central question I will seek to ask is whether more generic recipes (those closer to the local centre) are more highly rated than innovative recipes. 
 
 #Term frequency
 
@@ -179,12 +181,40 @@ for (i in 1:nrow(ingredinmattrim)){
 
 ````
 
+##Finding archetypal recipes
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+archetypes <- distdf[c(which.min(distdf$m1dist), 
+                       which.min(distdf$m2dist), 
+                       which.min(distdf$m3dist), 
+                       which.min(distdf$m4dist), 
+                       which.min(distdf$m5dist), 
+                       which.min(distdf$m6dist)),] 
+
+
+
+````
+
+##Finding the most divergent examples in each cluster
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+antichetypes <- distdf[c(which.max(distdf$m1dist), 
+                       which.max(distdf$m2dist), 
+                       which.max(distdf$m3dist), 
+                       which.max(distdf$m4dist), 
+                       which.max(distdf$m5dist), 
+                       which.max(distdf$m6dist)),] 
+
+
+
+````
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 
 
-distdf$clust <-unlist(km.out.main$cluster)
+distdf$clust <-as.factor(unlist(km.out.main$cluster))
 distdf$nearclust <- apply(distdf[,1:6],1,min)
 
 
@@ -194,11 +224,14 @@ sum(apply(distdf[,1:6],1,which.min) ==distdf$clust)
 #Yes!
 
 
-mdistdf <- gather(distdf, key="clust", value="dist", 1:6)
+mdistdf <- gather(distdf, key="clustdist", value="dist", 1:6)
 
-ggplot(mdistdf, aes(y=dist, x= , clust,colour=clust))+
-         geom_violin()
-         facet_wrap(~clust)
+ggplot(mdistdf, aes(y=dist, x= clust,fill=clust))+
+         geom_violin()+
+  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  geom_text(data=modeing, aes(x=clust,y=4, label=ingredscol), size=3.5)
+  
+   
 
 
 ````
@@ -228,34 +261,6 @@ ggplot(subset(mrecipesp, mrecipesp$var %in% c("fat", "calories", "protein", "sod
 
 ```
 
-##Finding archetypal recipes
-
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-archetypes <- distdf[c(which.min(distdf$m1dist), 
-                       which.min(distdf$m2dist), 
-                       which.min(distdf$m3dist), 
-                       which.min(distdf$m4dist), 
-                       which.min(distdf$m5dist), 
-                       which.min(distdf$m6dist)),] 
-
-
-
-````
-
-##Finding the most divergent examples in each cluster
-
-
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-antichetypes <- distdf[c(which.max(distdf$m1dist), 
-                       which.max(distdf$m2dist), 
-                       which.max(distdf$m3dist), 
-                       which.max(distdf$m4dist), 
-                       which.max(distdf$m5dist), 
-                       which.max(distdf$m6dist)),] 
-
-
-
-````
 
 
 
