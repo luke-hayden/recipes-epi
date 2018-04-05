@@ -7,12 +7,12 @@ output: html_document
 ```{r setup, include=FALSE}
 library(ggplot2)
 library(jsonlite)
-#library(tm)
+library(tm)
 library(dplyr)
 library(tidyr)
 library(klaR)
 
-setwd("~/recipes-epi")
+setwd("~/Documents/recipes-epi")
 ````
 
 
@@ -126,7 +126,10 @@ system.time(km.out.main <- kmodes(ingredindf, modes=6))
 
 ````
 
-#Examining our clusters: find the modal ingredient sets
+#Exloring our six clusters
+
+##Modal ingredient sets
+
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 modes <- as.data.frame(km.out.main$modes)
@@ -200,7 +203,7 @@ ggplot(mdistdf, aes(y=dist, x= , clust,colour=clust))+
 
 ````
 
-
+##Nutritional content of each cluster
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 recipesp <- left_join(recipes, distdf, by="namenum")
@@ -224,6 +227,36 @@ ggplot(subset(mrecipesp, mrecipesp$var %in% c("fat", "calories", "protein", "sod
 
 
 ```
+
+##Finding archetypal recipes
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+archetypes <- distdf[c(which.min(distdf$m1dist), 
+                       which.min(distdf$m2dist), 
+                       which.min(distdf$m3dist), 
+                       which.min(distdf$m4dist), 
+                       which.min(distdf$m5dist), 
+                       which.min(distdf$m6dist)),] 
+
+
+
+````
+
+##Finding the most divergent examples in each cluster
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+antichetypes <- distdf[c(which.max(distdf$m1dist), 
+                       which.max(distdf$m2dist), 
+                       which.max(distdf$m3dist), 
+                       which.max(distdf$m4dist), 
+                       which.max(distdf$m5dist), 
+                       which.max(distdf$m6dist)),] 
+
+
+
+````
+
 
 
 ````{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
@@ -267,20 +300,6 @@ ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
   theme_minimal()+
   scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
   geom_text(data=modeing, aes(x=35,y=4, label=ingredscol), size=3.5)
-
-````
-#Finding archetypal recipes
-
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-archetypes <- distdf[c(which.min(distdf$m1dist), 
-                       which.min(distdf$m2dist), 
-                       which.min(distdf$m3dist), 
-                       which.min(distdf$m4dist), 
-                       which.min(distdf$m5dist), 
-                       which.min(distdf$m6dist)),] %>% select ()
-
-
-
 
 ````
 
@@ -344,10 +363,6 @@ theme(legend.direction = 'horizontal', legend.position = 'top')
 
 
 ````
-
-ggtitle("PCA of all samples (normalised via housekeeping genes and internal controls NanoStringNorm")+ scale_colour_manual(values=c("cornflower blue", "forest green" ,"red3", "black"))
-
-p<-ggbiplot(bc.pca, obs.scale = 1, var.scale = 1, ellipse = FALSE, circle = TRUE, var.axes=FALSE, labels=rownames(tbc), groups=bc.groups)+ theme(legend.direction = 'horizontal', legend.position = 'top') +ggtitle("PCA of all samples (normalised via housekeeping genes and internal controls NanoStringNorm")+ scale_colour_manual(values=c("cornflower blue", "forest green" ,"red3", "black"))
 
 
 
