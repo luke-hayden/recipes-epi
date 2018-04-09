@@ -135,6 +135,10 @@ system.time(km.out.main <- kmodes(ingredindf, modes=6))
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 modes <- as.data.frame(km.out.main$modes)
+
+modes <- modes[,!apply(modes,2, all)]
+
+
 modeing <- data.frame(clust =c(), ingreds =c())
 
 
@@ -142,6 +146,10 @@ for (i in 1:6){
 
   modeing<-rbind(modeing, data.frame(clust=i, ingreds =paste(unlist(subset(colnames(modes), modes[i,]==TRUE)))))
 }
+
+
+
+
 modeing <- modeing %>% group_by(clust) %>% summarise(ingreds=paste(ingreds, collapse=" "))
 modeing$ingredscol <- gsub(" ", "\n", modeing$ingreds)
 modeing$clust <- as.factor(modeing$clust)
@@ -230,9 +238,13 @@ ggplot(mdistdf, aes(y=dist, x= clust,fill=clust))+
          geom_violin(alpha=0.5)+
   scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
   geom_text(data=modeing, aes(x=clust,y=32, label=ingredscol), size=3.5)+
-  ylim(0,40)+
-  theme_minimal(0)+
-  geom_text(data=archetypes, aes(x=clust, y=nearclust, label=name))
+  ylim(0,50)+
+  theme_minimal()+
+  xlab("cluster")+
+  ylab("Distance from cluster centre") +
+  ggtitle("Six recipe clusters")
+
+#  geom_text(data=archetypes, aes(x=clust, y=nearclust, label=name))
   
    
 
