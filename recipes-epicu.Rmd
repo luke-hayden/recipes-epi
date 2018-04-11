@@ -251,6 +251,66 @@ ggplot(mdistdf, aes(y=dist, x= clust,fill=clust))+
 
 ````
 
+
+
+#Factor analysis
+##Using modes
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+modemat <- as.matrix(modedf) +0
+
+
+modefact <- factanal(modemat, 2, rotation="varimax")
+
+modefact.lo <- as.data.frame(modefact$loadings[,1:2])
+modefact.lo$clust <- colnames(modedf)
+modefact.lo$size <- as.numeric(km.out.main$size)
+
+modefact.lo <- left_join(modefact.lo, modeing, by="clust")
+modefact.lo$ingredsnum <- paste(modefact.lo$clust, "\n", modefact.lo$ingreds)
+
+ggplot(modefact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
+  geom_point(shape=21, aes(size=size), alpha=0.6)+
+  theme_void()+
+  geom_text(size=5, aes(label=clust, colour=ingredsnum), nudge_x=-0.05)+
+  geom_text(aes(label=ingredscol), alpha=0.6)+
+  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_size_continuous(range=c(1,80))+
+   theme(legend.direction = 'horizontal', legend.position = 'bottom')+
+  guides(size=F, fill=F, colour=F)
+  coord_polar()
+  
+````
+
+##Using all recipes
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+ingredmat <- as.matrix(t(ingredinmattrim)) +0
+  
+
+ingredfact <- factanal(ingredmat, 2, rotation="varimax")
+
+ingredfact.lo <- as.data.frame(ingredfact$loadings[,1:2])
+ingredfact.lo$clust <- colnames(ingreddf)
+ingredfact.lo$size <- as.numeric(km.out.main$size)
+
+ingredfact.lo <- left_join(ingredfact.lo, ingreding, by="clust")
+ingredfact.lo$ingredsnum <- paste(ingredfact.lo$clust, "\n", ingredfact.lo$ingreds)
+
+ggplot(ingredfact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
+  geom_point(shape=21, aes(size=size), alpha=0.6)+
+  theme_void()+
+  geom_text(size=5, aes(label=clust, colour=ingredsnum), nudge_x=-0.05)+
+  geom_text(aes(label=ingredscol), alpha=0.6)+
+  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_size_continuous(range=c(1,80))+
+   theme(legend.direction = 'horizontal', legend.position = 'bottom')+
+  guides(size=F, fill=F, colour=F)
+````
+
+#Comparing clusters
 ##Nutritional content of each cluster
 
 ```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
