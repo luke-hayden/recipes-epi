@@ -176,7 +176,7 @@ ingredinmattrim <- as.matrix(ingredindf[,colnames(ingredindf) %in% rownames(mode
 
 
 
-distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, namenum=rownames(ingredinmattrim))
+distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, namenum=rownames(ingredinmattrim), name=recipes$title)
 
 for (i in 1:nrow(ingredinmattrim)){
   for (x in 1:ncol(modedf)){
@@ -198,7 +198,7 @@ archetypes <- distdf[c(which.min(distdf$m1dist),
                        which.min(distdf$m4dist), 
                        which.min(distdf$m5dist), 
                        which.min(distdf$m6dist)),] 
-archetypes$name <- gsub(" ", " \\n",(gsub("\\d* ", "", archetypes$namenum)))
+#archetypes$name <- gsub("^ ", " \\n",(gsub("\\d* ", "", archetypes$namenum)))
 
 
 ````
@@ -274,41 +274,20 @@ ggplot(modefact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
   theme_void()+
   geom_text(size=5, aes(label=clust, colour=ingredsnum), nudge_x=-0.05)+
   geom_text(aes(label=ingredscol), alpha=0.6)+
-  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"), labels=archetypes$name, name="archetypal recipes")+
   scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
-  scale_size_continuous(range=c(1,80))+
-   theme(legend.direction = 'horizontal', legend.position = 'bottom')+
-  guides(size=F, fill=F, colour=F)
-  coord_polar()
+  scale_size_continuous(range=c(10,100))+
+  theme(legend.position = 'bottom')+
+  guides(size=F, colour=F,fill = guide_legend(override.aes = list(size=10)))+
+  ylim(-0.7,1.1)+
+  xlim(-0.10,1.2)+
+  xlab("") +
+  ylab("")+
+  ggtitle("Epicurious.com recipes as six ingredient clusters", subtitle = "clustered using kmodes")
+
   
 ````
 
-##Using all recipes
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-
-ingredmat <- as.matrix(t(ingredinmattrim)) +0
-  
-
-ingredfact <- factanal(ingredmat, 2, rotation="varimax")
-
-ingredfact.lo <- as.data.frame(ingredfact$loadings[,1:2])
-ingredfact.lo$clust <- colnames(ingreddf)
-ingredfact.lo$size <- as.numeric(km.out.main$size)
-
-ingredfact.lo <- left_join(ingredfact.lo, ingreding, by="clust")
-ingredfact.lo$ingredsnum <- paste(ingredfact.lo$clust, "\n", ingredfact.lo$ingreds)
-
-ggplot(ingredfact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
-  geom_point(shape=21, aes(size=size), alpha=0.6)+
-  theme_void()+
-  geom_text(size=5, aes(label=clust, colour=ingredsnum), nudge_x=-0.05)+
-  geom_text(aes(label=ingredscol), alpha=0.6)+
-  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
-  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
-  scale_size_continuous(range=c(1,80))+
-   theme(legend.direction = 'horizontal', legend.position = 'bottom')+
-  guides(size=F, fill=F, colour=F)
-````
 
 #Comparing clusters
 ##Nutritional content of each cluster
@@ -345,24 +324,14 @@ ggplot(subset(mrecipesp, mrecipesp$var %in% c("fat", "calories", "protein", "sod
 
 ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
   geom_point(size=2.5, alpha=0.05)+
-    geom_smooth(method='lm', aes(x=nearclust, y=rating),inherit.aes=F, colour="red", se=F)+
+    geom_smooth(method='lm', aes(x=nearclust, y=rating, colour=clust),colour="red", se=F)+
   facet_wrap(~clust)+
   scale_colour_discrete()+
-  theme_minimal()+
+  theme_void()+
   scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))
   geom_text(data=modeing, aes(x=35,y=4, label=ingredscol), size=3.5)
   
   
-ggplot(recipesp, aes(x=numingred, y=nearclust, colour=clust))+
-  geom_point(size=2.5, alpha=0.05)+
-  theme_minimal()+
-  geom_smooth(method='lm', aes(x=numingred, y=nearclust),inherit.aes=F,  se=F)
-    
-    
-    
-    
-ggplot(recipesp, aes(x=clust, y=numingred, colour=clust))+
-  geom_violin()
   
 
 ````
@@ -371,128 +340,29 @@ ggplot(recipesp, aes(x=clust, y=numingred, colour=clust))+
 ````{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 recipesp <- left_join(recipes, distdf, by="namenum")
 recipesp$clust <- as.factor(recipesp$clust)
+recipesp$clustname <- paste("Cluster", recipesp$clust)
 
 ggplot(recipesp, aes(x=nearclust, y=rating, colour=clust))+
   geom_point(size=2.5, alpha=0.05)+
   facet_wrap(~clust)+
   geom_smooth(method='lm', aes(x=nearclust, y=rating), se=F)+
   scale_colour_discrete()+
-  theme_minimal()+
+  theme_void()+
   scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
-  geom_text(data=modeing, aes(x=35,y=4, label=ingredscol), size=3.5)
+  geom_text(data=modeing, aes(x=14,y=3, label=ingredscol), size=3.5)+
+  xlim(0,16)+
+  guides(colour=F)+
+  xlab("Novelty of recipe \n (Distance from cluster center)")+
+  ylab("Recipes rating")
 
 ````
 
+#Model building
 
 
 
 
-#Factor analysis
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-
-
-archefact <- factanal(t(archetypemat),2, rotation="varimax")
-
-
-archefact.lo <- as.data.frame(archefact$loadings[,1:2])
-archefact.lo$names <- rownames(archetypemat)
-archefact.lo$size <- as.numeric(archetypes$clustsize)
-
-
-ggplot(archefact.lo, aes(x= Factor1, y=Factor2,  label=names, colour=names))+
-  geom_point(aes(size=size*100000000))+
-  geom_text()+
-  theme_minimal()
-  scale_radius(range=c(1,30))
-````
 
 
 
 
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-tbc <- cbind(recipes[,c(2, 5,7,8,11:14)])
-tbc <-cbind(distdf[,c(1:6)])
-rownames(tbc) <- rownames(distdf)
-tbc <- subset(tbc, distdf$clustdist <12)
-
-
-
-#tbcg <- tbc[apply(tbc, 2, var, na.rm=TRUE) != 0,]
-#tbcg <- subset(tbcg, !(is.na(tbcg$fat)) &!(is.na(tbcg$calories))&!(is.na(tbcg$protein) & !(is.na(tbcg$sodium))&  !(is.na(tbcg$rating))) )
-
-tbc <- tbc[complete.cases(tbc),]
-
-bc.pca <- prcomp(tbc,center = TRUE ,scale. = TRUE) 
-
-
-bc.groups <- factor(distdf$clust[rownames(distdf) %in% rownames(tbc)])
-archet <- subset(bc.pca$x, rownames(bc.pca$x) %in% rownames(archefact.lo))
-
-ggbiplot(bc.pca, obs.scale = 1, var.scale = 1, ellipse = TRUE, circle = F,alpha=0.5, var.axes=TRUE, groups=bc.groups)+
-  scale_colour_manual(values=c("forest green", "red3", "cornflower blue", "yellow", "chocolate", "darkviolet"))+
-  theme_minimal()+
-  ylim(-5,4)+
-  xlim(-5,5)
-
-
-
-  geom_label()
-  coord_fixed(ratio=100)
-
-theme(legend.direction = 'horizontal', legend.position = 'top') 
-
-
-````
-
-
-
-
-#Factor analysis
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-
-
-
-
-hclust.arche.out <- hclust(dist(archetypemat))
-
-dhc <- as.dendrogram(hclust.arche.out)
-
-ddata <- dendro_data(dhc, type = "rectangle")
-ggplot(segment(ddata)) + 
-  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) + 
-  coord_flip() + 
-  geom_point(data=aes(x=xend, y=yend))+
-  scale_size_continuous(aes(size=size))+
-  scale_y_reverse(expand = c(0.2, 0))+
-  coord_polar(theta="x")
-
-plot(as.phylo(hclust.arche.out), type = "fan")
-
-ggdendrogram(hclust.arche.out, rotate=TRUE)+
-    coord_flip() 
-````
-
-
-
-
-```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
-ingredinmat <- t(ingredindf)
-
-
-distdf <- data.frame(m1dist = 999, m2dist= 999, m3dist =999, m4dist = 999, m5dist=999, m6dist =999, names=rownames(ingredinmat))
-
-
-for (i in 1:nrow(ingredinmat)){
-  for (x in 1:ncol(modedf)){
-    distdf[i,x] <- sum(ingredinmat[i,] != modedf[,x])
-  }
-  
-}
-
-
-distdf$clust <- apply(distdf[,1:6],1,which.min)
-
-distdf$clustdist <- apply(distdf[,1:6],1,min)
-
-
-````
