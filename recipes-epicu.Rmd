@@ -37,6 +37,16 @@ recipes$numdir <- lengths(recipes$directions)
 recipes$namenum <- paste(seq(1:nrow(recipes)), recipes$title)
 
 
+mrecipes <- gather(recipes,key="att", value="value",  c("numcat", "numdir", "calories", "protein", "sodium"))
+
+ggplot(mrecipes, aes(y=rating, x=value, colour=att))+
+  geom_point()+
+  stat_smooth(method="lm")+
+  facet_wrap(~att, scales="free")
+
+````
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 
 ingredcorpus <- paste(recipes$ingredients)
 ingredcorpus <- gsub("[^A-Za-z]"," ",ingredcorpus)
@@ -109,7 +119,7 @@ ggplot(data=data.frame(seq=1:10, wdiff=wdiff), aes(x=seq, y=wdiff))+
   ggtitle("Choosing appropriate number of clusters", subtitle = "kmodes clustering using test dataset")+
   theme_minimal()
 
-
+save(km.out, allingred, allingredc, ingredindf, namein, nameplurin, namesingin, notingred, recipes, simp, topingred, ingredcorpus, file="epic.rdata")
 
 
 ````
@@ -187,6 +197,7 @@ for (i in 1:nrow(ingredinmattrim)){
 
 
 
+
 ````
 
 ##Finding archetypal recipes
@@ -200,7 +211,7 @@ archetypes <- distdf[c(which.min(distdf$m1dist),
                        which.min(distdf$m6dist)),] 
 #archetypes$name <- gsub("^ ", " \\n",(gsub("\\d* ", "", archetypes$namenum)))
 
-
+archetypes$clust <- as.character(1:6)
 ````
 
 ##Finding the most divergent examples in each cluster
@@ -266,8 +277,11 @@ modefact.lo <- as.data.frame(modefact$loadings[,1:2])
 modefact.lo$clust <- colnames(modedf)
 modefact.lo$size <- as.numeric(km.out.main$size)
 
-modefact.lo <- left_join(modefact.lo, modeing, by="clust")
+modefact.lo <- left_join(modefact.lo, modeing, by="clust") %>%
+  left_join(archetypes, by="clust")
 modefact.lo$ingredsnum <- paste(modefact.lo$clust, "\n", modefact.lo$ingreds)
+
+
 
 ggplot(modefact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
   geom_point(shape=21, aes(size=size), alpha=0.6)+
@@ -279,11 +293,37 @@ ggplot(modefact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
   scale_size_continuous(range=c(10,100))+
   theme(legend.position = 'bottom')+
   guides(size=F, colour=F,fill = guide_legend(override.aes = list(size=10)))+
-  ylim(-0.7,1.1)+
-  xlim(-0.10,1.2)+
+  ylim(-0.1,0.9)+
+  xlim(-1.1,0.6)+
   xlab("") +
   ylab("")+
   ggtitle("Epicurious.com recipes as six ingredient clusters", subtitle = "clustered using kmodes")
+
+
+
+
+
+(p <- ggplot(modefact.lo, aes(x= Factor1, y=Factor2, fill=ingredsnum))+
+  geom_point(shape=21, aes(size=size), alpha=0.6)+
+  theme_void()+
+  geom_text(aes(label=name), alpha=0.6)+
+  scale_fill_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"), labels=modefact.lo$ingredscol, name="Cluster ingredient lists:")+
+  scale_colour_manual(values=c("cornflower blue", "forest green", "red3", "chocolate", "dark blue", "violet"))+
+  scale_size_continuous(range=c(10,100))+
+  theme(legend.position = 'bottom')+
+  guides(size=F, colour=F,fill = guide_legend(override.aes = list(size=10), nrow=1))+
+  ylim(-0.8,0.95)+
+  xlim(-0.6,1)+
+  xlab("") +
+  ylab("")+
+  ggtitle("Six generic recipes", subtitle = "Dataset of 20,130 recipes from Epicurious.com \n grouped by kmodes \n arranged by factor analysis")
+  )
+
+ggsave(plot=p, device="png", filename="epigenrecip.png", height=9, width=13, limitsize = F)
+
+
+
+
 
   
 ````
